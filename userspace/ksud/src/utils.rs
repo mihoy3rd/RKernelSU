@@ -246,6 +246,48 @@ pub fn get_work_dir() -> String {
     format!("{}/workdir/", tmp_path)
 }
 
+pub fn get_notmpfs_state() -> bool {
+    Path::new(defs::NO_TMPFS_PATH).exists()
+}
+
+pub fn get_nomount_state() -> bool {
+    Path::new(defs::NO_MOUNT_PATH).exists()
+}
+
+#[cfg(any(target_os = "android", target_os = "linux"))]
+pub fn set_notmpfs_mode(state: bool) -> Result<()> {
+    if !get_notmpfs_state() && state {
+        Command::new("touch")
+            .arg(defs::NO_TMPFS_PATH)
+            .status()?;
+    } else if get_notmpfs_state() && !state {
+        std::fs::remove_file(defs::NO_TMPFS_PATH).ok();
+    }
+    Ok(())
+}
+
+#[cfg(any(target_os = "android", target_os = "linux"))]
+pub fn set_nomount_mode(state: bool) -> Result<()> {
+    if !get_nomount_state() && state {
+        Command::new("touch")
+            .arg(defs::NO_MOUNT_PATH)
+            .status()?;
+    } else if get_nomount_state() && !state {
+        std::fs::remove_file(defs::NO_MOUNT_PATH).ok();
+    }
+    Ok(())
+}
+
+#[cfg(not(any(target_os = "android", target_os = "linux")))]
+pub fn set_notmpfs_mode(state: bool) -> Result<()> {
+    unimplemented!()
+}
+
+#[cfg(not(any(target_os = "android", target_os = "linux")))]
+pub fn set_nomount_mode(state: bool) -> Result<()> {
+    unimplemented!()
+}
+
 #[cfg(target_os = "android")]
 fn link_ksud_to_bin() -> Result<()> {
     let ksu_bin = PathBuf::from(defs::DAEMON_PATH);

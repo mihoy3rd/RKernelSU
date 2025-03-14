@@ -57,6 +57,11 @@ enum Commands {
         command: Sepolicy,
     },
 
+    MountOption {
+        #[command(subcommand)]
+        command: MountOption
+    }
+
     /// Manage App Profiles
     Profile {
         #[command(subcommand)]
@@ -191,6 +196,27 @@ enum Sepolicy {
 }
 
 #[derive(clap::Subcommand, Debug)]
+enum MountOption {
+    // SetMoMount <bool>
+    #[arg(short, long, default_value = "false")]
+    SetNoMount {
+        state: bool,
+    },
+
+    // SetNoTmpfs <bool>
+    #[arg(short, long, default_value = "false")]
+    SetNoTmpfs {
+        state: bool,
+    },
+
+    // Get .nomount state
+    GetNoMountState,
+
+    // Get .notmpfs state
+    GetNoTmpfsState,
+}
+
+#[derive(clap::Subcommand, Debug)]
 enum Module {
     /// Install module <ZIP>
     Install {
@@ -318,6 +344,14 @@ pub fn run() -> Result<()> {
         }
         Commands::Install { magiskboot } => utils::install(magiskboot),
         Commands::Uninstall { magiskboot } => utils::uninstall(magiskboot),
+        Commands::MountOption { command } => {
+            match command {
+                MountOption::SetNoMount { state } => utils::set_nomount_mode(state),
+                MountOption::SetNoTmpfs { state } => utils::set_notmpfs_mode(state),
+                MountOption::GetNoMountState => utils::get_nomount_state(),
+                MountOption::GetNoTmpfsState => utils::get_notmpfs_state(),
+            }
+        },
         Commands::Sepolicy { command } => match command {
             Sepolicy::Patch { sepolicy } => crate::sepolicy::live_patch(&sepolicy),
             Sepolicy::Apply { file } => crate::sepolicy::apply_file(file),

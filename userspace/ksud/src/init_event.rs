@@ -86,7 +86,7 @@ pub fn on_post_data_fs() -> Result<()> {
     }
 
     // mount temp dir
-    if !Path::new(NO_TMPFS_PATH).exists() {
+    if !utils::get_notmpfs_state() {
         if let Err(e) = mount_tmpfs(utils::get_tmp_path()) {
             warn!("do temp dir mount failed: {}", e);
         }
@@ -106,7 +106,7 @@ pub fn on_post_data_fs() -> Result<()> {
     }
 
     // mount module systemlessly by magic mount
-    if !Path::new(NO_MOUNT_PATH).exists() {
+    if !utils::get_nomount_state() {
         if let Err(e) = mount_modules_systemlessly() {
             warn!("do systemless mount failed: {}", e);
         }
