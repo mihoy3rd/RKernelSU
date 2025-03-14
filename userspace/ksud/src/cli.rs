@@ -198,14 +198,14 @@ enum Sepolicy {
 #[derive(clap::Subcommand, Debug)]
 enum MountOption {
     // SetMoMount <bool>
-    #[arg(short, long, default_value = "false")]
     SetNoMount {
+        #[arg(short, long, default_value = "false")]
         state: bool,
     },
 
     // SetNoTmpfs <bool>
-    #[arg(short, long, default_value = "false")]
     SetNoTmpfs {
+        #[arg(short, long, default_value = "false")]
         state: bool,
     },
 
