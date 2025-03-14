@@ -347,8 +347,14 @@ pub fn run() -> Result<()> {
         Commands::MountOption { command } => match command {
             MountOption::SetNoMount { state } => utils::set_nomount_mode(state),
             MountOption::SetNoTmpfs { state } => utils::set_notmpfs_mode(state),
-            MountOption::GetNoMountState => utils::get_nomount_state(),
-            MountOption::GetNoTmpfsState => utils::get_notmpfs_state(),
+            MountOption::GetNoMountState => {
+                println!("{}", utils::get_nomount_state());
+                Ok(())
+            },
+            MountOption::GetNoTmpfsState => {
+                println!("{}", utils::get_notmpfs_state());
+                Ok(())
+            }
         },
         Commands::Sepolicy { command } => match command {
             Sepolicy::Patch { sepolicy } => crate::sepolicy::live_patch(&sepolicy),
