@@ -59,8 +59,8 @@ enum Commands {
 
     MountOption {
         #[command(subcommand)]
-        command: MountOption
-    }
+        command: MountOption,
+    },
 
     /// Manage App Profiles
     Profile {
@@ -344,13 +344,11 @@ pub fn run() -> Result<()> {
         }
         Commands::Install { magiskboot } => utils::install(magiskboot),
         Commands::Uninstall { magiskboot } => utils::uninstall(magiskboot),
-        Commands::MountOption { command } => {
-            match command {
-                MountOption::SetNoMount { state } => utils::set_nomount_mode(state),
-                MountOption::SetNoTmpfs { state } => utils::set_notmpfs_mode(state),
-                MountOption::GetNoMountState => utils::get_nomount_state(),
-                MountOption::GetNoTmpfsState => utils::get_notmpfs_state(),
-            }
+        Commands::MountOption { command } => match command {
+            MountOption::SetNoMount { state } => utils::set_nomount_mode(state),
+            MountOption::SetNoTmpfs { state } => utils::set_notmpfs_mode(state),
+            MountOption::GetNoMountState => utils::get_nomount_state(),
+            MountOption::GetNoTmpfsState => utils::get_notmpfs_state(),
         },
         Commands::Sepolicy { command } => match command {
             Sepolicy::Patch { sepolicy } => crate::sepolicy::live_patch(&sepolicy),
