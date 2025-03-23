@@ -142,4 +142,52 @@
     <string name="log_saved">Logs saved</string>
     <string name="settings_disable_su">Disable su compatibility</string>
     <string name="settings_disable_su_summary">Temporarily disable any applications from obtaining root privileges via the ⁠su command (existing root processes will not be affected).</string>
+        <!-- Module related -->
+    <string name="unknown_module">Unknown Module</string>
+    <string name="module_install_confirm">Install Confirmation</string>
+    <string name="module_install_confirm_message">Do you want to install module: %1$s?</string>
+    <!-- Restore related -->
+    <string name="restore_confirm_title">Confirm Module Restoration</string>
+    <string name="restore_confirm_message">This operation will overwrite all existing modules. Continue?</string>
+    <string name="cancel">Cancel</string>
+    <!-- Backup related -->
+    <string name="backup_success">Backup successful (tar.gz)</string>
+    <string name="backup_failed">Backup failed: %1$s</string>
+    <!-- Restore related messages -->
+    <string name="restore_success">Modules restored successfully, restart required</string>
+    <string name="restore_failed">Restore failed: %1$s</string>
+    <string name="restart_now">Restart Now</string>
+    <string name="unknown_error">Unknown error</string>
+    <!-- Command related -->
+    <string name="command_execution_failed">Command execution failed: %1$s</string>
+    <!-- Allowlist related -->
+    <string name="allowlist_backup_success">Allowlist backup successful</string>
+    <string name="allowlist_backup_failed">Allowlist backup failed: %1$s</string>
+    <string name="allowlist_restore_confirm_title">Confirm Allowlist Restoration</string>
+    <string name="allowlist_restore_confirm_message">This operation will overwrite the current allowlist. Continue?</string>
+    <string name="allowlist_restore_success">Allowlist restored successfully</string>
+    <string name="allowlist_restore_failed">Allowlist restore failed: %1$s</string>
+    <string name="backup_allowlist">Backup Allowlist</string>
+    <string name="restore_allowlist">Restore Allowlist</string>
+    <string name="backup_modules">backup modules</string>
+    <string name="restore_modules">restore modules</string>
+    <string name="settings_custom_background">settings custom background</string>
+    <string name="settings_custom_background_summary">settings custom background summary</string>
+    <string name="settings_card_manage">card manage</string>
+    <string name="settings_card_alpha">card alpha</string>
+    <string name="settings_restore_default">restore default</string>
+    <string name="home_android_version">Android version</string>
+    <string name="home_device_model">device model</string>
+    <string name="module_install_multiple_confirm">Are you sure you want to install the selected %d modules?</string>
+    <string name="module_install_multiple_confirm_with_names">Sure you want to install the following %1$d modules? \n\n%2$s</string>
+    <string name="more_settings">more settings</string>
+    <string name="selinux">SELinux</string>
+    <string name="selinux_enabled">Enabled</string>
+    <string name="selinux_disabled">Disabled</string>
+    <string name="simple_mode">简洁模式</string>
+    <string name="simple_mode_summary">开启后将隐藏不必要的卡片</string>
+    <string name="theme_mode">主题模式</string>
+    <string name="theme_follow_system">跟随系统</string>
+    <string name="theme_light">浅色</string>
+    <string name="theme_dark">深色</string>
 </resources>

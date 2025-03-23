@@ -18,23 +18,10 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Undo
-import androidx.compose.material.icons.filled.BugReport
-import androidx.compose.material.icons.filled.Compress
-import androidx.compose.material.icons.filled.ContactPage
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.DeleteForever
-import androidx.compose.material.icons.filled.DeveloperMode
-import androidx.compose.material.icons.filled.Fence
-import androidx.compose.material.icons.filled.FolderDelete
-import androidx.compose.material.icons.filled.RemoveModerator
-import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Update
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
@@ -44,6 +31,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.material3.rememberTopAppBarState
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -62,7 +50,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
-import androidx.lifecycle.compose.dropUnlessResumed
 import com.maxkeppeker.sheets.core.models.base.Header
 import com.maxkeppeker.sheets.core.models.base.IconSource
 import com.maxkeppeker.sheets.core.models.base.rememberUseCaseState
@@ -73,6 +60,7 @@ import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
 import com.ramcosta.composedestinations.generated.destinations.AppProfileTemplateScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.FlashScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.MoreSettingsScreenDestination
 import com.ramcosta.composedestinations.navigation.DestinationsNavigator
 import com.ramcosta.composedestinations.navigation.EmptyDestinationsNavigator
 import kotlinx.coroutines.Dispatchers
@@ -92,7 +80,11 @@ import me.weishu.kernelsu.ui.util.LocalSnackbarHost
 import me.weishu.kernelsu.ui.util.getBugreportFile
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
-
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.ExpandMore
+import me.weishu.kernelsu.ui.theme.CardConfig
+ 
 /**
  * @author weishu
  * @date 2023/1/1.
@@ -107,9 +99,6 @@ fun SettingScreen(navigator: DestinationsNavigator) {
     Scaffold(
         topBar = {
             TopBar(
-                onBack = dropUnlessResumed {
-                    navigator.popBackStack()
-                },
                 scrollBehavior = scrollBehavior
             )
         },
@@ -188,7 +177,7 @@ fun SettingScreen(navigator: DestinationsNavigator) {
                     }
                 }
             }
-
+            
             val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
             var checkUpdate by rememberSaveable {
                 mutableStateOf(
@@ -219,6 +208,20 @@ fun SettingScreen(navigator: DestinationsNavigator) {
                 prefs.edit().putBoolean("enable_web_debugging", it).apply()
                 enableWebDebugging = it
             }
+            val newButtonTitle = stringResource(id = R.string.more_settings)
+            ListItem(
+                leadingContent = {
+                    Icon(
+                        Icons.Filled.ExpandMore,
+                        contentDescription = newButtonTitle
+                    )
+                },
+                headlineContent = { Text(newButtonTitle) },
+                supportingContent = { Text(stringResource(id = R.string.more_settings)) },
+                modifier = Modifier.clickable {
+                    navigator.navigate(MoreSettingsScreenDestination)
+                }
+            )
 
             var showBottomsheet by remember { mutableStateOf(false) }
 
@@ -458,20 +461,20 @@ fun rememberUninstallDialog(onSelected: (UninstallType) -> Unit): DialogHandle {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TopBar(
-    onBack: () -> Unit = {},
     scrollBehavior: TopAppBarScrollBehavior? = null
 ) {
+    // 获取卡片颜色和透明度
+    val cardColor = MaterialTheme.colorScheme.secondaryContainer
+    val cardAlpha = CardConfig.cardAlpha
+
     TopAppBar(
         title = { Text(stringResource(R.string.settings)) },
-        navigationIcon = {
-            IconButton(
-                onClick = onBack
-            ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-            }
-        },
         windowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
-        scrollBehavior = scrollBehavior
+        scrollBehavior = scrollBehavior,
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = cardColor.copy(alpha = cardAlpha),
+            scrolledContainerColor = cardColor.copy(alpha = cardAlpha)
+        )
     )
 }
 

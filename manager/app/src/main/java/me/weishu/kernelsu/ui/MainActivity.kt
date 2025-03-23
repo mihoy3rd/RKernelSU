@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.union
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -29,8 +30,9 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
@@ -42,7 +44,10 @@ import com.ramcosta.composedestinations.utils.rememberDestinationsNavigator
 import me.weishu.kernelsu.Natives
 import me.weishu.kernelsu.ksuApp
 import me.weishu.kernelsu.ui.screen.BottomBarDestination
+import me.weishu.kernelsu.ui.theme.CardConfig
 import me.weishu.kernelsu.ui.theme.KernelSUTheme
+import me.weishu.kernelsu.ui.theme.loadCustomBackground
+import me.weishu.kernelsu.ui.theme.loadThemeMode
 import me.weishu.kernelsu.ui.util.LocalSnackbarHost
 import me.weishu.kernelsu.ui.util.rootAvailable
 import me.weishu.kernelsu.ui.util.install
@@ -58,9 +63,14 @@ class MainActivity : ComponentActivity() {
         }
 
         super.onCreate(savedInstanceState)
+        
+                 // 加载保存的背景设置
+         loadCustomBackground()
+         loadThemeMode()
+         CardConfig.load(applicationContext)
 
-	val isManager = Natives.becomeManager(ksuApp.packageName)
-	if (isManager) install()
+         val isManager = Natives.becomeManager(ksuApp.packageName)
+         if (isManager) install()
 
         setContent {
             KernelSUTheme {
@@ -96,8 +106,16 @@ private fun BottomBar(navController: NavHostController) {
     val navigator = navController.rememberDestinationsNavigator()
     val isManager = Natives.becomeManager(ksuApp.packageName)
     val fullFeatured = isManager && !Natives.requireNewKernel() && rootAvailable()
-    NavigationBar(
-        tonalElevation = 8.dp,
+    
+    // 获取卡片颜色和透明度
+    val cardColor = MaterialTheme.colorScheme.secondaryContainer
+    val cardAlpha = CardConfig.cardAlpha
+    val cardElevation = CardConfig.cardElevation
+
+     NavigationBar(
+        tonalElevation = cardElevation, // 动态设置阴影
+        containerColor = cardColor.copy(alpha = cardAlpha), // 动态设置颜色和透明度
+        contentColor = if (cardColor.luminance() > 0.5) Color.Black else Color.White, // 根据背景亮度设置文字颜色
         windowInsets = WindowInsets.systemBars.union(WindowInsets.displayCutout).only(
             WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom
         )

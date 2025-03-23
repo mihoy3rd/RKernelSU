@@ -61,6 +61,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import me.weishu.kernelsu.R
 import me.weishu.kernelsu.ui.viewmodel.TemplateViewModel
+import me.weishu.kernelsu.ui.theme.CardConfig
 
 /**
  * @author weishu
@@ -219,6 +220,10 @@ private fun TopBar(
     onExport: () -> Unit = {},
     scrollBehavior: TopAppBarScrollBehavior? = null
 ) {
+    // 获取卡片颜色和透明度
+    val cardColor = MaterialTheme.colorScheme.secondaryContainer
+    val cardAlpha = CardConfig.cardAlpha
+
     TopAppBar(
         title = {
             Text(stringResource(R.string.settings_profile_template))
@@ -264,6 +269,10 @@ private fun TopBar(
             }
         },
         windowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
-        scrollBehavior = scrollBehavior
+        scrollBehavior = scrollBehavior,
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = cardColor.copy(alpha = cardAlpha),
+            scrolledContainerColor = cardColor.copy(alpha = cardAlpha)
+        )
     )
 }

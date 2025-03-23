@@ -21,7 +21,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -56,6 +55,8 @@ import me.weishu.kernelsu.ui.util.getAppProfileTemplate
 import me.weishu.kernelsu.ui.util.setAppProfileTemplate
 import me.weishu.kernelsu.ui.viewmodel.TemplateViewModel
 import me.weishu.kernelsu.ui.viewmodel.toJSON
+import me.weishu.kernelsu.ui.theme.CardConfig
+import androidx.compose.material3.MaterialTheme
 
 /**
  * @author weishu
@@ -259,40 +260,63 @@ private fun TopBar(
     onSave: () -> Unit = {},
     scrollBehavior: TopAppBarScrollBehavior? = null
 ) {
+    // 获取动态颜色
+    val containerColor = MaterialTheme.colorScheme.surface
+    val titleColor = MaterialTheme.colorScheme.onSurface
+    val iconColor = MaterialTheme.colorScheme.onSurface
+
     TopAppBar(
         title = {
             Column {
-                Text(title)
+                Text(
+                    text = title,
+                    color = titleColor // 应用动态文本颜色
+                )
                 if (summary.isNotBlank()) {
                     Text(
                         text = summary,
                         style = MaterialTheme.typography.bodyMedium,
+                        color = titleColor // 应用动态文本颜色
                     )
                 }
             }
-        }, navigationIcon = {
+        },
+        navigationIcon = {
             IconButton(
                 onClick = onBack
-            ) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null) }
-        }, actions = {
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = null,
+                    tint = iconColor // 应用动态图标颜色
+                )
+            }
+        },
+        actions = {
             if (readOnly) {
                 return@TopAppBar
             }
             IconButton(onClick = onDelete) {
                 Icon(
                     Icons.Filled.DeleteForever,
-                    contentDescription = stringResource(id = R.string.app_profile_template_delete)
+                    contentDescription = stringResource(id = R.string.app_profile_template_delete),
+                    tint = iconColor // 应用动态图标颜色
                 )
             }
             IconButton(onClick = onSave) {
                 Icon(
                     imageVector = Icons.Filled.Save,
-                    contentDescription = stringResource(id = R.string.app_profile_template_save)
+                    contentDescription = stringResource(id = R.string.app_profile_template_save),
+                    tint = iconColor // 应用动态图标颜色
                 )
             }
         },
         windowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
-        scrollBehavior = scrollBehavior
+        scrollBehavior = scrollBehavior,
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = containerColor, // 应用动态背景颜色
+            scrolledContainerColor = containerColor // 应用动态背景颜色
+        )
     )
 }
 

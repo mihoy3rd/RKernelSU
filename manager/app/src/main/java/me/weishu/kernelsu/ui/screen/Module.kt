@@ -1,6 +1,6 @@
 package me.weishu.kernelsu.ui.screen
 
-import android.app.Activity.RESULT_OK
+import android.app.Activity.*
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -8,7 +8,7 @@ import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,22 +24,19 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Wysiwyg
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.outlined.PlayArrow
-import androidx.compose.material.icons.outlined.Download
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.automirrored.outlined.*
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -74,7 +71,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.*
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -102,7 +99,7 @@ import me.weishu.kernelsu.ui.component.SearchAppBar
 import me.weishu.kernelsu.ui.component.rememberConfirmDialog
 import me.weishu.kernelsu.ui.component.rememberLoadingDialog
 import me.weishu.kernelsu.ui.util.DownloadListener
-import me.weishu.kernelsu.ui.util.LocalSnackbarHost
+import me.weishu.kernelsu.ui.util.*
 import me.weishu.kernelsu.ui.util.download
 import me.weishu.kernelsu.ui.util.hasMagisk
 import me.weishu.kernelsu.ui.util.reboot
@@ -110,8 +107,15 @@ import me.weishu.kernelsu.ui.util.restoreModule
 import me.weishu.kernelsu.ui.util.toggleModule
 import me.weishu.kernelsu.ui.util.uninstallModule
 import me.weishu.kernelsu.ui.util.getFileName
-import me.weishu.kernelsu.ui.viewmodel.ModuleViewModel
 import me.weishu.kernelsu.ui.webui.WebUIActivity
+import okhttp3.OkHttpClient
+import me.weishu.kernelsu.ui.theme.getCardColors
+import me.weishu.kernelsu.ui.theme.getCardElevation
+import me.weishu.kernelsu.ui.viewmodel.ModuleViewModel
+import me.weishu.kernelsu.ui.util.ModuleModify
+import java.io.BufferedReader
+import java.io.InputStreamReader
+import java.util.zip.ZipInputStream
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Destination<RootGraph>
@@ -121,7 +125,123 @@ fun ModuleScreen(navigator: DestinationsNavigator) {
     val context = LocalContext.current
     val snackBarHost = LocalSnackbarHost.current
     val scope = rememberCoroutineScope()
+    val confirmDialog = rememberConfirmDialog()
+    val selectZipLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) {
+        if (it.resultCode != RESULT_OK) {
+            return@rememberLauncherForActivityResult
+        }
+        val data = it.data ?: return@rememberLauncherForActivityResult
+        val uri = data.data ?: return@rememberLauncherForActivityResult
+
+        scope.launch {
+            val clipData = data.clipData
+            if (clipData != null) {
+                // 处理多选结果
+                val selectedModules = mutableSetOf<Uri>()
+                val selectedModuleNames = mutableMapOf<Uri, String>()
+ 
+                suspend fun processUri(uri: Uri) {
+                    val moduleName = withContext(Dispatchers.IO) {
+                        try {
+                            val zipInputStream = ZipInputStream(context.contentResolver.openInputStream(uri))
+                            var entry = zipInputStream.nextEntry
+                            var name = context.getString(R.string.unknown_module)
+ 
+                            while (entry != null) {
+                                if (entry.name == "module.prop") {
+                                    val reader = BufferedReader(InputStreamReader(zipInputStream))
+                                    var line: String?
+                                    while (reader.readLine().also { line = it } != null) {
+                                        if (line?.startsWith("name=") == true) {
+                                            name = line?.substringAfter("=") ?: name
+                                            break
+                                        }
+                                    }
+                                    break
+                                }
+                                entry = zipInputStream.nextEntry
+                            }
+                            name
+                        } catch (e: Exception) {
+                            context.getString(R.string.unknown_module)
+                        }
+                    }
+                    selectedModules.add(uri)
+                    selectedModuleNames[uri] = moduleName
+                }
+ 
+                for (i in 0 until clipData.itemCount) {
+                    val uri = clipData.getItemAt(i).uri
+                    processUri(uri)
+                }
+ 
+                // 显示确认对话框
+                val modulesList = selectedModuleNames.values.joinToString("\n• ", "• ")
+                val confirmResult = confirmDialog.awaitConfirm(
+                    title = context.getString(R.string.module_install),
+                    content = context.getString(R.string.module_install_multiple_confirm_with_names, selectedModules.size, modulesList),
+                    confirm = context.getString(R.string.install),
+                    dismiss = context.getString(R.string.cancel)
+                )
+ 
+                if (confirmResult == ConfirmResult.Confirmed) {
+                    // 批量安装模块
+                    selectedModules.forEach { uri ->
+                        navigator.navigate(FlashScreenDestination(FlashIt.FlashModule(uri)))
+                    }
+                    viewModel.markNeedRefresh()
+                }
+            } else {
+                // 单个文件安装逻辑
+                val uri = data.data ?: return@launch
+                val moduleName = withContext(Dispatchers.IO) {
+                    try {
+                        val zipInputStream = ZipInputStream(context.contentResolver.openInputStream(uri))
+                        var entry = zipInputStream.nextEntry
+                        var name = context.getString(R.string.unknown_module)
+ 
+                        while (entry != null) {
+                            if (entry.name == "module.prop") {
+                                val reader = BufferedReader(InputStreamReader(zipInputStream))
+                                var line: String?
+                                while (reader.readLine().also { line = it } != null) {
+                                    if (line?.startsWith("name=") == true) {
+                                        name = line?.substringAfter("=") ?: name
+                                        break
+                                    }
+                                }
+                                 break
+                             }
+                            entry = zipInputStream.nextEntry
+                         }
+                        name
+                    } catch (e: Exception) {
+                        context.getString(R.string.unknown_module)
+                     }
+                 }
+ 
+                val confirmResult = confirmDialog.awaitConfirm(
+                    title = context.getString(R.string.module_install),
+                    content = context.getString(R.string.module_install_confirm, moduleName),
+                    confirm = context.getString(R.string.install),
+                    dismiss = context.getString(R.string.cancel)
+                )
+ 
+                if (confirmResult == ConfirmResult.Confirmed) {
+                    navigator.navigate(FlashScreenDestination(FlashIt.FlashModule(uri)))
+                    viewModel.markNeedRefresh()
+                }
+             }
+         }
+     }
+
+    val backupLauncher = ModuleModify.rememberModuleBackupLauncher(context, snackBarHost)
+    val restoreLauncher = ModuleModify.rememberModuleRestoreLauncher(context, snackBarHost)
+ 
     val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+ 
 
     LaunchedEffect(Unit) {
         if (viewModel.moduleList.isEmpty() || viewModel.isNeedRefresh) {
@@ -137,7 +257,7 @@ fun ModuleScreen(navigator: DestinationsNavigator) {
     val hideInstallButton = isSafeMode || hasMagisk
 
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
-
+    
     val webUILauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { viewModel.fetchModuleList() }
@@ -160,43 +280,68 @@ fun ModuleScreen(navigator: DestinationsNavigator) {
                             contentDescription = stringResource(id = R.string.settings)
                         )
 
-                        DropdownMenu(expanded = showDropdown, onDismissRequest = {
-                            showDropdown = false
-                        }) {
-                            DropdownMenuItem(text = {
-                                Text(stringResource(R.string.module_sort_action_first))
-                            }, trailingIcon = {
-                                Checkbox(viewModel.sortActionFirst, null)
-                            }, onClick = {
-                                viewModel.sortActionFirst =
-                                    !viewModel.sortActionFirst
-                                prefs.edit()
-                                    .putBoolean(
-                                        "module_sort_action_first",
-                                        viewModel.sortActionFirst
-                                    )
-                                    .apply()
-                                scope.launch {
-                                    viewModel.fetchModuleList()
+                        DropdownMenu(
+                            expanded = showDropdown,
+                            onDismissRequest = { showDropdown = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.module_sort_action_first)) },
+                                trailingIcon = { Checkbox(viewModel.sortActionFirst, null) },
+                                onClick = {
+                                    viewModel.sortActionFirst = !viewModel.sortActionFirst
+                                    prefs.edit()
+                                        .putBoolean("module_sort_action_first", viewModel.sortActionFirst)
+                                        .apply()
+                                    scope.launch {
+                                        viewModel.fetchModuleList()
+                                    }
                                 }
-                            })
-                            DropdownMenuItem(text = {
-                                Text(stringResource(R.string.module_sort_enabled_first))
-                            }, trailingIcon = {
-                                Checkbox(viewModel.sortEnabledFirst, null)
-                            }, onClick = {
-                                viewModel.sortEnabledFirst =
-                                    !viewModel.sortEnabledFirst
-                                prefs.edit()
-                                    .putBoolean(
-                                        "module_sort_enabled_first",
-                                        viewModel.sortEnabledFirst
-                                    )
-                                    .apply()
-                                scope.launch {
-                                    viewModel.fetchModuleList()
+                                                        )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.module_sort_enabled_first)) },
+                                trailingIcon = { Checkbox(viewModel.sortEnabledFirst, null) },
+                                onClick = {
+                                    viewModel.sortEnabledFirst = !viewModel.sortEnabledFirst
+                                    prefs.edit()
+                                        .putBoolean("module_sort_enabled_first", viewModel.sortEnabledFirst)
+                                        .apply()
+                                    scope.launch {
+                                        viewModel.fetchModuleList()
+                                    }
                                 }
-                            })
+                            )
+                             DropdownMenuItem(
+                                 text = { Text(stringResource(R.string.backup_modules)) },
+                                 leadingIcon = {
+                                     Icon(
+                                         imageVector = Icons.Outlined.Download,
+                                         contentDescription = "备份"
+                                     )
+                                 },
+                                 onClick = {
+                                     showDropdown = false
+                                     backupLauncher.launch(ModuleModify.createBackupIntent())
+                                 }
+                             )
+ 
+                             DropdownMenuItem(
+                                 text = { Text(stringResource(R.string.restore_modules)) },
+                                 leadingIcon = {
+                                     Icon(
+                                         imageVector = Icons.Outlined.Refresh,
+                                         contentDescription = "还原"
+                                     )
+                                 },
+                                 onClick = {
+                                     showDropdown = false
+                                     // 打开文件选择器
+                                     val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                                         addCategory(Intent.CATEGORY_OPENABLE)
+                                         type = "application/zip"
+                                     }
+                                     restoreLauncher.launch(ModuleModify.createRestoreIntent())
+                                 }
+                             )
                         }
                     }
                 },
@@ -204,62 +349,32 @@ fun ModuleScreen(navigator: DestinationsNavigator) {
             )
         },
         floatingActionButton = {
-            if (!hideInstallButton) {
-                val moduleInstall = stringResource(id = R.string.module_install)
-                val confirmTitle = stringResource(R.string.module)
-                var zipUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
-                val confirmDialog = rememberConfirmDialog(onConfirm = {
-                    navigator.navigate(FlashScreenDestination(FlashIt.FlashModules(zipUris)))
-                    viewModel.markNeedRefresh()
-                })
-                val selectZipLauncher = rememberLauncherForActivityResult(
-                    contract = ActivityResultContracts.StartActivityForResult()
-                ) {
-                    if (it.resultCode != RESULT_OK) {
-                        return@rememberLauncherForActivityResult
-                    }
-                    val data = it.data ?: return@rememberLauncherForActivityResult
-                    val clipData = data.clipData
-
-                    val uris = mutableListOf<Uri>()
-                    if (clipData != null) {
-                        for (i in 0 until clipData.itemCount) {
-                            clipData.getItemAt(i)?.uri?.let { uris.add(it) }
-                        }
-                    } else {
-                        data.data?.let { uris.add(it) }
-                    }
-
-                    if (uris.size == 1) {
-                        navigator.navigate(FlashScreenDestination(FlashIt.FlashModule(uris.first())))
-                    } else if (uris.size > 1)  {
-                        // multiple files selected
-                        val moduleNames = uris.mapIndexed { index, uri -> "\n${index + 1}. ${uri.getFileName(context)}" }.joinToString("")
-                        val confirmContent = context.getString(R.string.module_install_prompt_with_name, moduleNames)
-                        zipUris = uris
-                        confirmDialog.showConfirm(
-                            title = confirmTitle,
-                            content = confirmContent,
-                            markdown = true
-                        )
-                    }
-                }
+             if (!hideInstallButton) {
+                 val moduleInstall = stringResource(id = R.string.module_install)
 
                 ExtendedFloatingActionButton(
                     onClick = {
-                        // Select the zip files to install
-                        val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
-                            type = "application/zip"
-                            putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
-                        }
-                        selectZipLauncher.launch(intent)
+                        // 打开文件选择器
+                         selectZipLauncher.launch(
+                            Intent(Intent.ACTION_GET_CONTENT).apply {
+                                type = "application/zip"
+                                putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+                            }
+                        )
                     },
-                    icon = { Icon(Icons.Filled.Add, moduleInstall) },
-                    text = { Text(text = moduleInstall) },
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Filled.Add,
+                            contentDescription = moduleInstall
+                        )
+                    },
+                    text = { Text(text = moduleInstall) }
                 )
             }
         },
-        contentWindowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
+        contentWindowInsets = WindowInsets.safeDrawing.only(
+            WindowInsetsSides.Top + WindowInsetsSides.Horizontal
+        ),
         snackbarHost = { SnackbarHost(hostState = snackBarHost) }
     ) { innerPadding ->
 
@@ -280,7 +395,7 @@ fun ModuleScreen(navigator: DestinationsNavigator) {
 
             else -> {
                 ModuleList(
-                    navigator,
+                    navigator = navigator,
                     viewModel = viewModel,
                     modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
                     boxModifier = Modifier.padding(innerPadding),
@@ -562,7 +677,8 @@ fun ModuleItem(
     onClick: (ModuleViewModel.ModuleInfo) -> Unit
 ) {
     ElevatedCard(
-        modifier = Modifier.fillMaxWidth()
+        colors = getCardColors(MaterialTheme.colorScheme.secondaryContainer),
+        elevation = CardDefaults.cardElevation(defaultElevation = getCardElevation())
     ) {
         val textDecoration = if (!module.remove) null else TextDecoration.LineThrough
         val interactionSource = remember { MutableInteractionSource() }
@@ -773,6 +889,7 @@ fun ModuleItem(
     }
 }
 
+ 
 @Preview
 @Composable
 fun ModuleItemPreview() {

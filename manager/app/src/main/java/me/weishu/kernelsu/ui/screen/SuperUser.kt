@@ -1,24 +1,27 @@
 package me.weishu.kernelsu.ui.screen
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -32,6 +35,7 @@ import kotlinx.coroutines.launch
 import me.weishu.kernelsu.Natives
 import me.weishu.kernelsu.R
 import me.weishu.kernelsu.ui.component.SearchAppBar
+import me.weishu.kernelsu.ui.util.ModuleModify
 import me.weishu.kernelsu.ui.viewmodel.SuperUserViewModel
 
 @OptIn(ExperimentalMaterialApi::class, ExperimentalMaterial3Api::class)
@@ -42,6 +46,12 @@ fun SuperUserScreen(navigator: DestinationsNavigator) {
     val scope = rememberCoroutineScope()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
     val listState = rememberLazyListState()
+    val context = LocalContext.current
+    val snackBarHostState = remember { SnackbarHostState() }
+
+    // 添加备份和还原启动器
+    val backupLauncher = ModuleModify.rememberAllowlistBackupLauncher(context, snackBarHostState)
+    val restoreLauncher = ModuleModify.rememberAllowlistRestoreLauncher(context, snackBarHostState)
 
     LaunchedEffect(key1 = navigator) {
         viewModel.search = ""
@@ -97,13 +107,59 @@ fun SuperUserScreen(navigator: DestinationsNavigator) {
                                 viewModel.showSystemApps = !viewModel.showSystemApps
                                 showDropdown = false
                             })
+                            // 批量操作菜单项已移除
+                            DropdownMenuItem(text = {
+                                Text(stringResource(R.string.backup_allowlist))
+                            }, onClick = {
+                                backupLauncher.launch(ModuleModify.createAllowlistBackupIntent())
+                                showDropdown = false
+                            })
+                            DropdownMenuItem(text = {
+                                Text(stringResource(R.string.restore_allowlist))
+                            }, onClick = {
+                                restoreLauncher.launch(ModuleModify.createAllowlistRestoreIntent())
+                                showDropdown = false
+                            })
                         }
                     }
                 },
                 scrollBehavior = scrollBehavior
             )
         },
-        contentWindowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
+        snackbarHost = { SnackbarHost(snackBarHostState) },
+        contentWindowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
+        bottomBar = {
+            // 批量操作按钮，直接放在底部栏
+            if (viewModel.showBatchActions && viewModel.selectedApps.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.surface)
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                viewModel.updateBatchPermissions(true)
+                            }
+                        }
+                    ) {
+                        Text("批量授权")
+                    }
+
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                viewModel.updateBatchPermissions(false)
+                            }
+                        }
+                    ) {
+                        Text("批量取消授权")
+                    }
+                }
+            }
+        }
     ) { innerPadding ->
         PullToRefreshBox(
             modifier = Modifier.padding(innerPadding),
@@ -118,9 +174,122 @@ fun SuperUserScreen(navigator: DestinationsNavigator) {
                     .fillMaxSize()
                     .nestedScroll(scrollBehavior.nestedScrollConnection)
             ) {
-                items(viewModel.appList, key = { it.packageName + it.uid }) { app ->
-                    AppItem(app) {
-                        navigator.navigate(AppProfileScreenDestination(app))
+                // 获取分组后的应用列表 - 修改分组逻辑，避免应用重复出现在多个分组中
+                val rootApps = viewModel.appList.filter { it.allowSu }
+                val customApps = viewModel.appList.filter { !it.allowSu && it.hasCustomProfile }
+                val otherApps = viewModel.appList.filter { !it.allowSu && !it.hasCustomProfile }
+
+                // 显示ROOT权限应用组
+                if (rootApps.isNotEmpty()) {
+                    item {
+                        GroupHeader(title = "ROOT 权限应用")
+                    }
+                    items(rootApps, key = { "root_" + it.packageName + it.uid }) { app ->
+                        AppItem(
+                            app = app,
+                            isSelected = viewModel.selectedApps.contains(app.packageName),
+                            onToggleSelection = { viewModel.toggleAppSelection(app.packageName) },
+                            onSwitchChange = { allowSu ->
+                                scope.launch {
+                                    val profile = Natives.getAppProfile(app.packageName, app.uid)
+                                    val updatedProfile = profile.copy(allowSu = allowSu)
+                                    if (Natives.setAppProfile(updatedProfile)) {
+                                        viewModel.fetchAppList()
+                                    }
+                                }
+                            },
+                            onClick = {
+                                if (viewModel.showBatchActions) {
+                                    viewModel.toggleAppSelection(app.packageName)
+                                } else {
+                                    navigator.navigate(AppProfileScreenDestination(app))
+                                }
+                            },
+                            onLongClick = {
+                                // 长按进入多选模式
+                                if (!viewModel.showBatchActions) {
+                                    viewModel.toggleBatchMode()
+                                    viewModel.toggleAppSelection(app.packageName)
+                                }
+                            },
+                            viewModel = viewModel
+                        )
+                    }
+                }
+
+                // 显示自定义配置应用组
+                if (customApps.isNotEmpty()) {
+                    item {
+                        GroupHeader(title = "自定义配置应用")
+                    }
+                    items(customApps, key = { "custom_" + it.packageName + it.uid }) { app ->
+                        AppItem(
+                            app = app,
+                            isSelected = viewModel.selectedApps.contains(app.packageName),
+                            onToggleSelection = { viewModel.toggleAppSelection(app.packageName) },
+                            onSwitchChange = { allowSu ->
+                                scope.launch {
+                                    val profile = Natives.getAppProfile(app.packageName, app.uid)
+                                    val updatedProfile = profile.copy(allowSu = allowSu)
+                                    if (Natives.setAppProfile(updatedProfile)) {
+                                        viewModel.fetchAppList()
+                                    }
+                                }
+                            },
+                            onClick = {
+                                if (viewModel.showBatchActions) {
+                                    viewModel.toggleAppSelection(app.packageName)
+                                } else {
+                                    navigator.navigate(AppProfileScreenDestination(app))
+                                }
+                            },
+                            onLongClick = {
+                                // 长按进入多选模式
+                                if (!viewModel.showBatchActions) {
+                                    viewModel.toggleBatchMode()
+                                    viewModel.toggleAppSelection(app.packageName)
+                                }
+                            },
+                            viewModel = viewModel
+                        )
+                    }
+                }
+
+                // 显示其他应用组
+                if (otherApps.isNotEmpty()) {
+                    item {
+                        GroupHeader(title = "其他应用")
+                    }
+                    items(otherApps, key = { "other_" + it.packageName + it.uid }) { app ->
+                        AppItem(
+                            app = app,
+                            isSelected = viewModel.selectedApps.contains(app.packageName),
+                            onToggleSelection = { viewModel.toggleAppSelection(app.packageName) },
+                            onSwitchChange = { allowSu ->
+                                scope.launch {
+                                    val profile = Natives.getAppProfile(app.packageName, app.uid)
+                                    val updatedProfile = profile.copy(allowSu = allowSu)
+                                    if (Natives.setAppProfile(updatedProfile)) {
+                                        viewModel.fetchAppList()
+                                    }
+                                }
+                            },
+                            onClick = {
+                                if (viewModel.showBatchActions) {
+                                    viewModel.toggleAppSelection(app.packageName)
+                                } else {
+                                    navigator.navigate(AppProfileScreenDestination(app))
+                                }
+                            },
+                            onLongClick = {
+                                // 长按进入多选模式
+                                if (!viewModel.showBatchActions) {
+                                    viewModel.toggleBatchMode()
+                                    viewModel.toggleAppSelection(app.packageName)
+                                }
+                            },
+                            viewModel = viewModel
+                        )
                     }
                 }
             }
@@ -128,14 +297,44 @@ fun SuperUserScreen(navigator: DestinationsNavigator) {
     }
 }
 
+@Composable
+fun GroupHeader(title: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        Text(
+            text = title,
+            style = TextStyle(
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        )
+    }
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AppItem(
     app: SuperUserViewModel.AppInfo,
-    onClickListener: () -> Unit,
+    isSelected: Boolean,
+    onToggleSelection: () -> Unit,
+    onSwitchChange: (Boolean) -> Unit,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    viewModel: SuperUserViewModel
 ) {
     ListItem(
-        modifier = Modifier.clickable(onClick = onClickListener),
+        modifier = Modifier
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onLongPress = { onLongClick() },
+                    onTap = { onClick() }
+                )
+            },
         headlineContent = { Text(app.label) },
         supportingContent = {
             Column {
@@ -167,6 +366,19 @@ private fun AppItem(
                     .height(48.dp)
             )
         },
+        trailingContent = {
+            if (!viewModel.showBatchActions) {
+                Switch(
+                    checked = app.allowSu,
+                    onCheckedChange = onSwitchChange
+                )
+            } else {
+                Checkbox(
+                    checked = isSelected,
+                    onCheckedChange = { onToggleSelection() }
+                )
+            }
+        }
     )
 }
 

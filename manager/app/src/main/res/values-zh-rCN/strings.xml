@@ -136,4 +136,53 @@
     <string name="log_saved">日志已保存</string>
     <string name="settings_disable_su">关闭 su 兼容</string>
     <string name="settings_disable_su_summary">临时禁止任何应用通过 su 命令获取 root 权限（已运行的 root 进程不受影响）</string>
+        <!-- Module related -->
+    <string name="unknown_module">未知模块</string>
+    <string name="module_install_confirm">安装确认</string>
+    <string name="module_install_confirm_message">是否要安装模块：%1$s？</string>
+    <!-- Restore related -->
+    <string name="restore_confirm_title">确认还原模块</string>
+    <string name="restore_confirm_message">此操作将覆盖所有现有模块，是否继续？</string>
+    <string name="confirm">确定</string>
+    <string name="cancel">取消</string>
+    <!-- Backup related -->
+    <string name="backup_success">备份成功 (tar.gz)</string>
+    <string name="backup_failed">备份失败：%1$s</string>
+     <string name="backup_modules">备份模块</string>
+     <string name="restore_modules">恢复模块</string>
+    <!-- Restore related messages -->
+    <string name="restore_success">模块已成功还原，需重启生效</string>
+    <string name="restore_failed">还原失败：%1$s</string>
+    <string name="restart_now">立即重启</string>
+    <string name="unknown_error">未知错误</string>
+    <!-- Command related -->
+    <string name="command_execution_failed">命令执行失败：%1$s</string>
+    <!-- Allowlist related -->
+    <string name="allowlist_backup_success">应用列表备份成功</string>
+    <string name="allowlist_backup_failed">应用列表备份失败：%1$s</string>
+    <string name="allowlist_restore_confirm_title">确认还原应用列表</string>
+    <string name="allowlist_restore_confirm_message">此操作将覆盖当前的应用列表，是否继续？</string>
+    <string name="allowlist_restore_success">应用列表还原成功</string>
+    <string name="allowlist_restore_failed">应用列表还原失败：%1$s</string>
+    <string name="backup_allowlist">备份应用列表</string>
+    <string name="restore_allowlist">还原应用列表</string>
+    <string name="settings_custom_background">自定义背景</string>
+    <string name="settings_custom_background_summary">选择一张图片作为应用背景</string>
+    <string name="settings_card_manage">卡片管理</string>
+    <string name="settings_card_alpha">卡片透明度</string>
+    <string name="settings_restore_default">恢复默认</string>
+    <string name="home_android_version">Android 版本</string>
+    <string name="home_device_model">设备</string>
+    <string name="module_install_multiple_confirm">确定要安装选择的 %d 个模块吗？</string>
+    <string name="module_install_multiple_confirm_with_names">确定要安装以下 %1$d 个模块吗？\n\n%2$s</string>
+    <string name="more_settings">更多设置</string>
+    <string name="selinux">SELinux</string>
+    <string name="selinux_enabled">强制执行</string>
+    <string name="selinux_disabled">兼容模式</string>
+    <string name="simple_mode">简洁模式</string>
+    <string name="simple_mode_summary">开启后将隐藏不必要的卡片</string>
+    <string name="theme_mode">主题模式</string>
+    <string name="theme_follow_system">跟随系统</string>
+    <string name="theme_light">浅色</string>
+    <string name="theme_dark">深色</string>
 </resources>

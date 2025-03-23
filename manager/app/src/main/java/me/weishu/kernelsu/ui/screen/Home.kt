@@ -11,20 +11,15 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Archive
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.outlined.Block
-import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.Warning
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.*
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -41,11 +36,28 @@ import me.weishu.kernelsu.R
 import me.weishu.kernelsu.ui.component.rememberConfirmDialog
 import me.weishu.kernelsu.ui.util.*
 import me.weishu.kernelsu.ui.util.module.LatestVersionInfo
+import me.weishu.kernelsu.ui.theme.getCardColors
+import me.weishu.kernelsu.ui.theme.getCardElevation
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.runtime.saveable.rememberSaveable
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Destination<RootGraph>(start = true)
 @Composable
 fun HomeScreen(navigator: DestinationsNavigator) {
+    val context = LocalContext.current
+    var isSimpleMode by rememberSaveable { mutableStateOf(false) }
+
+    // 从 SharedPreferences 加载简洁模式状态
+    LaunchedEffect(Unit) {
+        isSimpleMode = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+            .getBoolean("is_simple_mode", false)
+    }
     val kernelVersion = getKernelVersion()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
 
@@ -99,9 +111,25 @@ fun HomeScreen(navigator: DestinationsNavigator) {
             if (checkUpdate) {
                 UpdateCard()
             }
+            var clickCount by remember { mutableStateOf(0) }
+             if (!isSimpleMode) {
+                AnimatedVisibility(
+                    visible = clickCount < 3,
+                    exit = shrinkVertically() + fadeOut()
+                 ) {
+                     ElevatedCard(
+                        colors = getCardColors(MaterialTheme.colorScheme.secondaryContainer),
+                        elevation = CardDefaults.cardElevation(defaultElevation = getCardElevation())
+                     ) {
+                     }
+                 }
+             }
             UnofficialCard()
             InfoCard()
-            DonateCard()
+            if (!isSimpleMode) {
+                DonateCard()
+            }
+
             Spacer(Modifier)
         }
     }
@@ -167,14 +195,25 @@ private fun TopBar(
     onSettingsClick: () -> Unit,
     scrollBehavior: TopAppBarScrollBehavior? = null
 ) {
+    // 动态读取颜色
+    val containerColor = MaterialTheme.colorScheme.surface
+    val titleColor = MaterialTheme.colorScheme.onSurface
+    val iconColor = MaterialTheme.colorScheme.onSurface
+
     TopAppBar(
-        title = { Text(stringResource(R.string.app_name)) },
+        title = {
+            Text(
+                text = stringResource(R.string.app_name),
+                color = titleColor // 动态设置标题颜色
+            )
+        },
         actions = {
             if (kernelVersion.isGKI()) {
                 IconButton(onClick = onInstallClick) {
                     Icon(
                         imageVector = Icons.Filled.Archive,
-                        contentDescription = stringResource(id = R.string.install)
+                        contentDescription = stringResource(id = R.string.install),
+                        tint = iconColor // 动态设置图标颜色
                     )
                 }
             }
@@ -185,13 +224,13 @@ private fun TopBar(
             }) {
                 Icon(
                     imageVector = Icons.Filled.Refresh,
-                    contentDescription = stringResource(id = R.string.reboot)
+                    contentDescription = stringResource(id = R.string.reboot),
+                    tint = iconColor // 动态设置图标颜色
                 )
 
                 DropdownMenu(expanded = showDropdown, onDismissRequest = {
                     showDropdown = false
                 }) {
-
                     RebootDropdownItem(id = R.string.reboot)
 
                     val pm = LocalContext.current.getSystemService(Context.POWER_SERVICE) as PowerManager?
@@ -205,16 +244,13 @@ private fun TopBar(
                     RebootDropdownItem(id = R.string.reboot_edl, reason = "edl")
                 }
             }
-
-            IconButton(onClick = onSettingsClick) {
-                Icon(
-                    imageVector = Icons.Filled.Settings,
-                    contentDescription = stringResource(id = R.string.settings)
-                )
-            }
         },
         windowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
-        scrollBehavior = scrollBehavior
+        scrollBehavior = scrollBehavior,
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = containerColor, // 动态设置背景颜色
+            scrolledContainerColor = containerColor // 动态设置滚动后的背景颜色
+        )
     )
 }
 
@@ -226,10 +262,8 @@ private fun StatusCard(
     onClickInstall: () -> Unit = {}
 ) {
     ElevatedCard(
-        colors = CardDefaults.elevatedCardColors(containerColor = run {
-            if (ksuVersion != null) MaterialTheme.colorScheme.secondaryContainer
-            else MaterialTheme.colorScheme.errorContainer
-        })
+        colors = getCardColors(MaterialTheme.colorScheme.secondaryContainer),
+        elevation = CardDefaults.cardElevation(defaultElevation = getCardElevation())
     ) {
         Row(modifier = Modifier
             .fillMaxWidth()
@@ -319,9 +353,8 @@ fun WarningCard(
     message: String, color: Color = MaterialTheme.colorScheme.error, onClick: (() -> Unit)? = null
 ) {
     ElevatedCard(
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = color
-        )
+        colors = getCardColors(MaterialTheme.colorScheme.secondaryContainer),
+        elevation = CardDefaults.cardElevation(defaultElevation = getCardElevation())
     ) {
         Row(
             modifier = Modifier
@@ -340,7 +373,10 @@ fun WarningCard(
 fun DonateCard() {
     val uriHandler = LocalUriHandler.current
 
-    ElevatedCard {
+    ElevatedCard(
+        colors = getCardColors(MaterialTheme.colorScheme.secondaryContainer),
+        elevation = CardDefaults.cardElevation(defaultElevation = getCardElevation())
+    ) {
 
         Row(modifier = Modifier
             .fillMaxWidth()
@@ -367,7 +403,10 @@ fun DonateCard() {
 fun UnofficialCard() {
     val uriHandler = LocalUriHandler.current
 
-    ElevatedCard {
+    ElevatedCard(
+        colors = getCardColors(MaterialTheme.colorScheme.secondaryContainer),
+        elevation = CardDefaults.cardElevation(defaultElevation = getCardElevation())
+    ) {
 
         Row(modifier = Modifier
             .fillMaxWidth()
@@ -393,8 +432,13 @@ fun UnofficialCard() {
 @Composable
 private fun InfoCard() {
     val context = LocalContext.current
+    val isSimpleMode = LocalContext.current.getSharedPreferences("settings", Context.MODE_PRIVATE)
+        .getBoolean("is_simple_mode", false)
 
-    ElevatedCard {
+    ElevatedCard(
+        colors = getCardColors(MaterialTheme.colorScheme.secondaryContainer),
+        elevation = CardDefaults.cardElevation(defaultElevation = getCardElevation())
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -412,15 +456,22 @@ private fun InfoCard() {
 
             InfoCardItem(stringResource(R.string.home_kernel), uname.release)
 
+            if (!isSimpleMode) {
+                Spacer(Modifier.height(16.dp))
+                val androidVersion = Build.VERSION.RELEASE
+                InfoCardItem(stringResource(R.string.home_android_version), androidVersion)
+            }
+
+            Spacer(Modifier.height(16.dp))
+            val deviceModel = Build.MODEL
+            InfoCardItem(stringResource(R.string.home_device_model), deviceModel)
+
             Spacer(Modifier.height(16.dp))
             val managerVersion = getManagerVersion(context)
             InfoCardItem(
                 stringResource(R.string.home_manager_version),
                 "${managerVersion.first} (${managerVersion.second})"
             )
-
-            Spacer(Modifier.height(16.dp))
-            InfoCardItem(stringResource(R.string.home_fingerprint), Build.FINGERPRINT)
 
             Spacer(Modifier.height(16.dp))
             InfoCardItem(stringResource(R.string.home_selinux_status), getSELinuxStatus())

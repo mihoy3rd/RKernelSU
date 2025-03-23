@@ -3,38 +3,16 @@ package me.weishu.kernelsu.ui.screen
 import android.net.Uri
 import android.os.Environment
 import android.os.Parcelable
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Save
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.TopAppBarScrollBehavior
-import androidx.compose.material3.rememberTopAppBarState
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.key
@@ -54,18 +32,10 @@ import kotlinx.coroutines.withContext
 import kotlinx.parcelize.Parcelize
 import me.weishu.kernelsu.R
 import me.weishu.kernelsu.ui.component.KeyEventBlocker
-import me.weishu.kernelsu.ui.util.FlashResult
-import me.weishu.kernelsu.ui.util.LkmSelection
-import me.weishu.kernelsu.ui.util.LocalSnackbarHost
-import me.weishu.kernelsu.ui.util.flashModule
-import me.weishu.kernelsu.ui.util.installBoot
-import me.weishu.kernelsu.ui.util.reboot
-import me.weishu.kernelsu.ui.util.restoreBoot
-import me.weishu.kernelsu.ui.util.uninstallPermanently
+import me.weishu.kernelsu.ui.util.*
 import java.io.File
 import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import java.util.*
 
 /**
  * @author weishu
@@ -79,6 +49,15 @@ enum class FlashingStatus {
 }
 
 // Lets you flash modules sequentially when mutiple zipUris are selected
+private var currentFlashingStatus = mutableStateOf(FlashingStatus.FLASHING)
+
+fun getFlashingStatus(): FlashingStatus {
+    return currentFlashingStatus.value
+}
+
+fun setFlashingStatus(status: FlashingStatus) {
+    currentFlashingStatus.value = status
+}
 fun flashModulesSequentially(
     uris: List<Uri>,
     onStdout: (String) -> Unit,
@@ -108,18 +87,27 @@ fun FlashScreen(navigator: DestinationsNavigator, flashIt: FlashIt) {
     val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
-    var flashing by rememberSaveable {
-        mutableStateOf(FlashingStatus.FLASHING)
-    }
 
     LaunchedEffect(Unit) {
         if (text.isNotEmpty()) {
             return@LaunchedEffect
         }
         withContext(Dispatchers.IO) {
-            flashIt(flashIt, onStdout = {
+            setFlashingStatus(FlashingStatus.FLASHING)
+            flashIt(flashIt, onFinish = { showReboot, code ->
+                if (code != 0) {
+                    text += "Error: exit code = $code.\nPlease save and check the log.\n"
+                    setFlashingStatus(FlashingStatus.FAILED)
+                } else {
+                    setFlashingStatus(FlashingStatus.SUCCESS)
+                }
+                if (showReboot) {
+                    text += "\n\n\n"
+                    showFloatAction = true
+                }
+            }, onStdout = {
                 tempText = "$it\n"
-                if (tempText.startsWith("[H[J")) { // clear command
+                if (tempText.startsWith("[H[J")) { // clear command
                     text = tempText.substring(6)
                 } else {
                     text += tempText
@@ -127,23 +115,14 @@ fun FlashScreen(navigator: DestinationsNavigator, flashIt: FlashIt) {
                 logContent.append(it).append("\n")
             }, onStderr = {
                 logContent.append(it).append("\n")
-            }).apply {
-                if (code != 0) {
-                    text += "Error code: $code.\n $err Please save and check the log.\n"
-                }
-                if (showReboot) {
-                    text += "\n\n\n"
-                    showFloatAction = true
-                }
-                flashing = if (code == 0) FlashingStatus.SUCCESS else FlashingStatus.FAILED
-            }
+            })
         }
     }
 
     Scaffold(
         topBar = {
             TopBar(
-                flashing,
+                currentFlashingStatus.value,
                 onBack = dropUnlessResumed {
                     navigator.popBackStack()
                 },
@@ -207,20 +186,16 @@ fun FlashScreen(navigator: DestinationsNavigator, flashIt: FlashIt) {
 
 @Parcelize
 sealed class FlashIt : Parcelable {
-    data class FlashBoot(val boot: Uri? = null, val lkm: LkmSelection, val ota: Boolean) :
-        FlashIt()
-
+    data class FlashBoot(val boot: Uri? = null, val lkm: LkmSelection, val ota: Boolean) : FlashIt()
     data class FlashModule(val uri: Uri) : FlashIt()
-
     data class FlashModules(val uris: List<Uri>) : FlashIt()
-
     data object FlashRestore : FlashIt()
-
     data object FlashUninstall : FlashIt()
 }
 
 fun flashIt(
     flashIt: FlashIt,
+    onFinish: (Boolean, Int) -> Unit,
     onStdout: (String) -> Unit,
     onStderr: (String) -> Unit
 ): FlashResult {
@@ -232,15 +207,11 @@ fun flashIt(
             onStdout,
             onStderr
         )
-
         is FlashIt.FlashModule -> flashModule(flashIt.uri, onStdout, onStderr)
-
         is FlashIt.FlashModules -> {
             flashModulesSequentially(flashIt.uris, onStdout, onStderr)
         }
-
         FlashIt.FlashRestore -> restoreBoot(onStdout, onStderr)
-
         FlashIt.FlashUninstall -> uninstallPermanently(onStdout, onStderr)
     }
 }
@@ -285,6 +256,6 @@ private fun TopBar(
 
 @Preview
 @Composable
-fun InstallPreview() {
-    InstallScreen(EmptyDestinationsNavigator)
+fun FlashScreenPreview() {
+    FlashScreen(EmptyDestinationsNavigator, FlashIt.FlashUninstall)
 }
