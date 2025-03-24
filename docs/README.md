@@ -31,7 +31,9 @@ curl -LSs "https://raw.githubusercontent.com/rsuntk/KernelSU/main/kernel/setup.s
     - For GKI (5.10 - 6.x) Kernels, add `CONFIG_KSU_MANUAL_HOOK=y` to kernel defconfig make sure to use `#ifdef CONFIG_KSU_MANUAL_HOOK` instead of `#ifdef CONFIG_KSU` to guard KernelSU hook.
     - Standard KernelSU hook: https://kernelsu.org/guide/how-to-integrate-for-non-gki.html#manually-modify-the-kernel-source
     - backslashxx's syscall manual hook: https://github.com/backslashxx/KernelSU/issues/5
-
+3. **美化部分来自:**
+    - https://github.com/ShirkNeko/KernelSU
+    
 ## Features
 
 1. Kernel-based `su` and root access management.
