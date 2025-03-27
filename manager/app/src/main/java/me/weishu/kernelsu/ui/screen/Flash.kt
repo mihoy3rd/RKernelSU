@@ -14,6 +14,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.runtime.setValue 
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -49,15 +50,6 @@ enum class FlashingStatus {
 }
 
 // Lets you flash modules sequentially when mutiple zipUris are selected
-private var currentFlashingStatus = mutableStateOf(FlashingStatus.FLASHING)
-
-fun getFlashingStatus(): FlashingStatus {
-    return currentFlashingStatus.value
-}
-
-fun setFlashingStatus(status: FlashingStatus) {
-    currentFlashingStatus.value = status
-}
 fun flashModulesSequentially(
     uris: List<Uri>,
     onStdout: (String) -> Unit,
@@ -87,42 +79,42 @@ fun FlashScreen(navigator: DestinationsNavigator, flashIt: FlashIt) {
     val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
+    var flashing by rememberSaveable {
+         mutableStateOf(FlashingStatus.FLASHING)
+     }
 
     LaunchedEffect(Unit) {
         if (text.isNotEmpty()) {
-            return@LaunchedEffect
-        }
-        withContext(Dispatchers.IO) {
-            setFlashingStatus(FlashingStatus.FLASHING)
-            flashIt(flashIt, onFinish = { showReboot, code ->
-                if (code != 0) {
-                    text += "Error: exit code = $code.\nPlease save and check the log.\n"
-                    setFlashingStatus(FlashingStatus.FAILED)
-                } else {
-                    setFlashingStatus(FlashingStatus.SUCCESS)
-                }
-                if (showReboot) {
-                    text += "\n\n\n"
-                    showFloatAction = true
-                }
-            }, onStdout = {
-                tempText = "$it\n"
-                if (tempText.startsWith("[H[J")) { // clear command
-                    text = tempText.substring(6)
-                } else {
-                    text += tempText
-                }
-                logContent.append(it).append("\n")
-            }, onStderr = {
-                logContent.append(it).append("\n")
-            })
+             return@LaunchedEffect
+         }
+         withContext(Dispatchers.IO) {
+             flashIt(flashIt, onStdout = {
+                 tempText = "$it\n"
+                 if (tempText.startsWith("[H[J")) { // clear command
+                     text = tempText.substring(6)
+                 } else {
+                     text += tempText
+                 }
+                 logContent.append(it).append("\n")
+             }, onStderr = {
+                 logContent.append(it).append("\n")
+             }).apply {
+                 if (code != 0) {
+                     text += "Error code: $code.\n $err Please save and check the log.\n"
+                 }
+                 if (showReboot) {
+                     text += "\n\n\n"
+                     showFloatAction = true
+                     flashing = if (code == 0) FlashingStatus.SUCCESS else FlashingStatus.FAILED
+                 }
+             }
         }
     }
 
     Scaffold(
         topBar = {
             TopBar(
-                currentFlashingStatus.value,
+                flashing,
                 onBack = dropUnlessResumed {
                     navigator.popBackStack()
                 },
@@ -186,7 +178,8 @@ fun FlashScreen(navigator: DestinationsNavigator, flashIt: FlashIt) {
 
 @Parcelize
 sealed class FlashIt : Parcelable {
-    data class FlashBoot(val boot: Uri? = null, val lkm: LkmSelection, val ota: Boolean) : FlashIt()
+    data class FlashBoot(val boot: Uri? = null, val lkm: LkmSelection, val ota: Boolean) :
+         FlashIt()
     data class FlashModule(val uri: Uri) : FlashIt()
     data class FlashModules(val uris: List<Uri>) : FlashIt()
     data object FlashRestore : FlashIt()
@@ -195,7 +188,6 @@ sealed class FlashIt : Parcelable {
 
 fun flashIt(
     flashIt: FlashIt,
-    onFinish: (Boolean, Int) -> Unit,
     onStdout: (String) -> Unit,
     onStderr: (String) -> Unit
 ): FlashResult {
@@ -256,6 +248,6 @@ private fun TopBar(
 
 @Preview
 @Composable
-fun FlashScreenPreview() {
-    FlashScreen(EmptyDestinationsNavigator, FlashIt.FlashUninstall)
+fun InstallPreview() {
+     InstallScreen(EmptyDestinationsNavigator)
 }
