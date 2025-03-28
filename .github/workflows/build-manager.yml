@@ -8,7 +8,6 @@ on:
       - 'manager/**'
       - 'kernel/**'
       - 'userspace/ksud/**'
-      - 'userspace/susfsd/**'
   pull_request:
     branches: [ "main" ]
     paths:
@@ -40,7 +39,7 @@ jobs:
       os: ${{ matrix.os }}
 
   build-manager:
-    needs: build-ksud
+    needs: [build-ksud, build-susfsd]
     runs-on: ubuntu-latest
     environment: signing
     defaults:
@@ -101,12 +100,14 @@ jobs:
 
       - name: Copy ksud to app jniLibs
         run: |
-          cp -f ../aarch64-linux-android/release/ksud ../manager/app/src/main/jniLibs/arm64-v8a/libksud.so
+          mkdir -p app/src/main/jniLibs/arm64-v8a
+          cp -f ../aarch64-linux-android/release/ksud app/src/main/jniLibs/arm64-v8a/libksud.so
 
       - name: Copy susfsd to app jniLibs
         run: |
-          cp -f ../aarch64-linux-android/release/susfsd ../manager/app/src/main/jniLibs/arm64-v8a/libsusfsd.so
-          
+          mkdir -p app/src/main/jniLibs/arm64-v8a
+          cp -f ../arm64-v8a/susfsd app/src/main/jniLibs/arm64-v8a/libsusfsd.so
+
       - name: Build with Gradle
         run: |
           {
