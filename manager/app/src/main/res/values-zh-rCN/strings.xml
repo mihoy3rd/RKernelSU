@@ -190,4 +190,8 @@
     <string name="home_susfs_sus_su">SuS SU</string>
     <string name="settings_susfs_toggle">隐藏 Kprobe 钩子</string>
     <string name="settings_susfs_toggle_summary">禁用由 KSU 创建的 Kprobe 钩子，并使用非 Kprobe 内联钩子代替，实现方式类似于不支持 Kprobe 的非 GKI 内核。</string>
+    <string name="status_supported">支持</string>
+    <string name="status_not_supported">不支持</string>
+    <string name="status_unknown">未知</string>
+    <string name="sus_su_mode">SuS SU 模式：</string>
 </resources>
