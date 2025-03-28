@@ -313,7 +313,7 @@ private fun StatusCard(
                         Text(
                             text = stringResource(R.string.home_module_count, getModuleCount()),
                             style = MaterialTheme.typography.bodyMedium
-                        
+                        )
                         val suSFS = getSuSFS() // 假设返回值是 "Supported"、"Not Supported" 或其他
                         val translatedStatus = when (suSFS) {
                             "Supported" -> stringResource(R.string.status_supported)
