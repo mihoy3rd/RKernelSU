@@ -40,8 +40,6 @@ jobs:
     with:
       target: ${{ matrix.target }}
       os: ${{ matrix.os }}
-      pack_lkm: true
-      pull_lkm: ${{ needs.check-build-lkm.outputs.build_lkm != 'true' }}
 
   build-manager:
     needs: build-ksud
