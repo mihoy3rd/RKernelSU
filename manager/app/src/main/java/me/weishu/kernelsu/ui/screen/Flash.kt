@@ -248,6 +248,6 @@ private fun TopBar(
 
 @Preview
 @Composable
-fun InstallPreview() {
-     InstallScreen(EmptyDestinationsNavigator)
+fun FlashScreenPreview() {
+     FlashScreen(EmptyDestinationsNavigator, FlashIt.FlashUninstall)
 }
