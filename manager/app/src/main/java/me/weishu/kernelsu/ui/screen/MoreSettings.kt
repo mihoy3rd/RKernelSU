@@ -1,5 +1,5 @@
 package me.weishu.kernelsu.ui.screen
- 
+
 import android.content.Context
 import android.net.Uri
 import androidx.compose.foundation.layout.*
@@ -37,6 +37,11 @@ import me.weishu.kernelsu.ui.theme.CardConfig
 import me.weishu.kernelsu.ui.theme.ThemeConfig
 import me.weishu.kernelsu.ui.theme.saveCustomBackground
 import me.weishu.kernelsu.ui.theme.saveThemeMode
+import me.weishu.kernelsu.ui.util.getSuSFS
+import me.weishu.kernelsu.ui.util.getSuSFSFeatures
+import me.weishu.kernelsu.ui.util.susfsSUS_SU_0
+import me.weishu.kernelsu.ui.util.susfsSUS_SU_2
+import me.weishu.kernelsu.ui.util.susfsSUS_SU_Mode
 
 fun saveCardConfig(context: Context) {
     val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
@@ -73,7 +78,7 @@ fun MoreSettingsScreen(navigator: DestinationsNavigator) {
         stringResource(R.string.theme_light),
         stringResource(R.string.theme_dark)
     )
-    
+
     // 简洁模块开关状态
     var isSimpleMode by remember {
         mutableStateOf(prefs.getBoolean("is_simple_mode", false))
@@ -160,6 +165,49 @@ fun MoreSettingsScreen(navigator: DestinationsNavigator) {
             ) {
                 onSimpleModeChange(it)
             }
+
+            // region SUSFS 配置（仅在支持时显示）
+            val suSFS = getSuSFS()
+            val isSUS_SU = getSuSFSFeatures()
+            if (suSFS == "Supported") {
+                if (isSUS_SU == "CONFIG_KSU_SUSFS_SUS_SU") {
+                    // 初始化时，默认启用
+                    var isEnabled by rememberSaveable {
+                        mutableStateOf(true) // 默认启用
+                    }
+
+                    // 在启动时检查状态
+                    LaunchedEffect(Unit) {
+                        // 如果当前模式不是2就强制启用
+                        val currentMode = susfsSUS_SU_Mode()
+                        val wasManuallyDisabled = prefs.getBoolean("enable_sus_su", true)
+                        if (currentMode != "2" && wasManuallyDisabled) {
+                            susfsSUS_SU_2() // 强制切换到模式2
+                            prefs.edit().putBoolean("enable_sus_su", true).apply()
+                        }
+                        isEnabled = currentMode == "2"
+                    }
+
+                    SwitchItem(
+                        icon = Icons.Filled.VisibilityOff,
+                        title = stringResource(id = R.string.settings_susfs_toggle),
+                        summary = stringResource(id = R.string.settings_susfs_toggle_summary),
+                        checked = isEnabled
+                    ) {
+                        if (it) {
+                            // 手动启用
+                            susfsSUS_SU_2()
+                            prefs.edit().putBoolean("enable_sus_su", true).apply()
+                        } else {
+                            // 手动关闭
+                            susfsSUS_SU_0()
+                            prefs.edit().putBoolean("enable_sus_su", false).apply()
+                        }
+                        isEnabled = it
+                    }
+                }
+            }
+            // endregion
 
             // 自定义背景开关
             SwitchItem(
@@ -269,6 +317,8 @@ fun MoreSettingsScreen(navigator: DestinationsNavigator) {
         }
     }
 }
+
+
 
 @Composable
 fun getSliderColors(value: Float): SliderColors {

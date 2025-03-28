@@ -172,4 +172,9 @@
     <string name="theme_follow_system">跟隨繫統</string>
     <string name="theme_light">淺色</string>
     <string name="theme_dark">深色</string>
+    <string name="home_susfs">SuSFS：%s</string>
+    <string name="home_susfs_version">SuSFS 版本</string>
+    <string name="home_susfs_sus_su">SuS SU</string>
+    <string name="settings_susfs_toggle">隱藏 Kprobe 鉤子</string>
+    <string name="settings_susfs_toggle_summary">禁用由 KSU 創建的 Kprobe 鉤子，並使用非 Kprobe 內聯鉤子代替，實現方式類似於不支持 Kprobe 的非 GKI 內核。</string>
 </resources>
