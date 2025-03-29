@@ -692,15 +692,18 @@ void ksu_ksud_init()
 	INIT_WORK(&stop_vfs_read_work, do_stop_vfs_read_hook);
 	INIT_WORK(&stop_execve_hook_work, do_stop_execve_hook);
 	INIT_WORK(&stop_input_hook_work, do_stop_input_hook);
+
+#endif
 #endif
 }
 
 void ksu_ksud_exit()
 {
-#ifdef KSU_HOOK_WITH_KPROBES
+#ifdef CONFIG_KPROBES
 	unregister_kprobe(&execve_kp);
-	// this should be done before unregister vfs_read_kp
-	// unregister_kprobe(&vfs_read_kp);
+	unregister_kprobe(&vfs_read_kp);
 	unregister_kprobe(&input_event_kp);
+
+	flush_scheduled_work();
 #endif
 }
